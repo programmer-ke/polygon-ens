@@ -3,7 +3,7 @@ const main = async () => {
     const domainContractFactory = await hre.ethers.getContractFactory("Domains");
 
     // pass in the tld when deploying
-    const domainContract = await domainContractFactory.deploy("alpha");
+    const domainContract = await domainContractFactory.deploy("alfa");
 
     await domainContract.deployed();
     console.log("Contract deployed to:", domainContract.address);
@@ -20,7 +20,7 @@ const main = async () => {
     console.log("Contract balance:", hre.ethers.utils.formatEther(balance));
 
     // trying to set a record as non-owner
-    txn = await domainContract.connect(randomPerson).setRecord("xyz", "pwned!");
+    txn = await domainContract.connect(randomPerson).setRecord("xyz", "pwned");
     await txn.await();
 
 };
