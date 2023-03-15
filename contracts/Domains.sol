@@ -24,7 +24,8 @@ contract Domains is ERC721URIStorage {
 
   mapping(string => address) public domains;
   mapping(string => string) public records;
-
+  mapping(uint => string) public names;
+  
   address payable public owner;
 
   constructor (string memory _tld) payable ERC721("Alfa Name Service", "ANS") {
@@ -36,7 +37,7 @@ contract Domains is ERC721URIStorage {
   // Calculate price of based on length
   function price (string calldata name) public pure returns (uint) {
     uint len = StringUtils.strlen(name);
-    require(len > 0);
+    if (len <= 0) revert InvalidName(name);
     if (len <= 3) {
       return 5 * 10**17; // 0.5 matic (5 matic = 5 * 10**18)
     } else if (len == 4) {
@@ -49,25 +50,25 @@ contract Domains is ERC721URIStorage {
   function register(string calldata name) public payable {
 
     // Check that the domain doesn't already exist
-    require(domains[name] == address(0), "Domain already exists");
-
+    if (domains[name] != address(0)) revert AlreadyRegistered(name);
+    
     uint _price = price(name);
-
+    
     // Check if enough Matic was sent in transaction
-    require(msg.value >= _price, "Not enough Matic paid");
-
+    if (msg.value < _price) revert InsufficientAmountForDomain();
+    
     // Concatenate name and tld
     string memory _name = string(abi.encodePacked(name, ".", tld));
-
+    
     // Create svg for NFT with name
     string memory finalSvg = string(abi.encodePacked(svgPartOne, _name, svgPartTwo));
-
+    
     uint256 newRecordId = _tokenIds.current();
     uint256 length = StringUtils.strlen(name);
     string memory strLen = Strings.toString(length);
 
     console.log("Registering %s.%s on the contract with tokenID %d", name, tld, newRecordId);
-
+    
     // JSON metadata of NFT base64 encoded
     string memory json = Base64.encode(
       abi.encodePacked(
@@ -80,7 +81,6 @@ contract Domains is ERC721URIStorage {
         '"}'
       )				       
     );
-
     string memory finalTokenUri = string(abi.encodePacked("data:application/json;base64,", json));
 
     console.log("\n--------------------------------------------------------");
@@ -96,6 +96,7 @@ contract Domains is ERC721URIStorage {
     domains[name] = msg.sender;
     console.log("%s has registered a domain!", msg.sender);
 
+    names[newRecordId] = name;
     _tokenIds.increment();
   }
 
@@ -105,7 +106,7 @@ contract Domains is ERC721URIStorage {
 
   function setRecord(string calldata name, string calldata record) public {
     // check that owner of domain 'name' is the transaction sender
-    require(domains[name] == msg.sender, "Access denied!");
+    if (domains[name] != msg.sender) revert Unauthorized();
     records[name] = record;
   }
 
@@ -113,8 +114,18 @@ contract Domains is ERC721URIStorage {
     return records[name];
   }
 
+  function getAllNames() public view returns (string[] memory) {
+    console.log("Getting all names from contract");
+    string[] memory allNames = new string[](_tokenIds.current());
+    for (uint i = 0; i < _tokenIds.current(); i++) {
+      allNames[i] = names[i];
+      console.log("Name for token %d is %s", i, allNames[i]);
+    }
+    return allNames;
+  }
+
   modifier onlyOwner() {
-    require(isOwner());
+    if (!isOwner()) revert Unauthorized();
     _;  // placeholder for the function being modified
   }
 
@@ -126,6 +137,12 @@ contract Domains is ERC721URIStorage {
     uint amount = address(this).balance;
     // transfer the balance to the caller
     (bool success, ) = msg.sender.call{value: amount}("");
-    require(success, "Failed to withdraw Matic");
+    if (!success) revert ContractWithdrawalFailed();
   }
 }
+
+error ContractWithdrawalFailed();
+error Unauthorized();
+error InsufficientAmountForDomain();
+error AlreadyRegistered(string name);
+error InvalidName(string name);

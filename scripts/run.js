@@ -40,6 +40,19 @@ const main = async () => {
 
     console.log("Contract balance after withdrawal:", hre.ethers.utils.formatEther(contractBalance));
     console.log("Owner balance after withdrawal:", hre.ethers.utils.formatEther(ownerBalance));
+
+    // register new domain as randomPerson
+    txn = await domainContract.connect(randomPerson).register("abc", {value: hre.ethers.utils.parseEther("10")});
+    await txn.wait();
+
+    // get all domains
+    let allDomains = await domainContract.getAllNames();
+    console.log("All registered domains", allDomains);
+
+    // randomPerson should be unable to re-register already registered domain
+    txn = await domainContract.register("xyz", {value: hre.ethers.utils.parseEther("10")});
+    await txn.wait();
+    
 };
 
 const runMain = async () => {
